@@ -29,3 +29,11 @@ ADC VCC -> 5v
 ADC GND -> GND  
 ADC SDA -> 21  
 ADC SCL -> 22
+
+## DHT11
+### Library
+DHT11.h
+### Wiring
+DHT VCC -> 5v  
+DHT GND -> GND  
+DHT Data -> 19  
