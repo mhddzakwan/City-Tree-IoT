@@ -16,3 +16,16 @@ MHZ RX -> TX2 (17)
 MHZ TX -> RX2 (16)  
 Vin -> 5v  
 GND -> GND  
+
+## MQ-2
+### Library
+Adafruit_ADS1X15
+### Wiring
+MQ2 VCC -> 5v  
+MQ2 GND -> GND  
+MQ2 A0 -> ADC A0  
+
+ADC VCC -> 5v  
+ADC GND -> GND  
+ADC SDA -> 21  
+ADC SCL -> 22
