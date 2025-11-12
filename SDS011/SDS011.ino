@@ -1,23 +1,26 @@
-#include <HardwareSerial.h>
+#include <Arduino.h>
 #include "SdsDustSensor.h"
 
-int rxPin = 18;  // SDS011 TX -> ESP32 RX
-int txPin = 19;  // SDS011 RX <- ESP32 TX
+#define SDS_RX 16  // SDS011 TX -> ESP32 RX
+#define SDS_TX 17  // SDS011 RX <- ESP32 TX
+#define SDS_BAUD 9600
 
-HardwareSerial& sdsSerial = Serial2;
+HardwareSerial sdsSerial(2); // Gunakan UART2
 SdsDustSensor sds(sdsSerial);
 
 void setup() {
   Serial.begin(115200);
-  sdsSerial.begin(9600, SERIAL_8N1, rxPin, txPin);
   delay(1000);
 
   Serial.println("Inisialisasi SDS011...");
-  sds.begin();
-  delay(1000); // beri waktu sensor untuk startup
+  sdsSerial.begin(SDS_BAUD, SERIAL_8N1, SDS_RX, SDS_TX);
+  delay(1000);
 
-  Serial.println(sds.setActiveReportingMode().toString());  // Mode aktif (otomatis kirim data)
-  Serial.println(sds.setCustomWorkingPeriod(0).toString()); // Mode continuous (selalu aktif)
+  sds.begin();
+  delay(1000);
+  Serial.println(sds.setActiveReportingMode().toString());
+  Serial.println(sds.setCustomWorkingPeriod(0).toString());
+  Serial.println("SDS011 Siap.");
 }
 
 void loop() {
@@ -29,8 +32,9 @@ void loop() {
     Serial.print(pm.pm10);
     Serial.println(" µg/m³");
   } else {
-    Serial.println("Gagal membaca data dari SDS011");
+    Serial.println("Gagal membaca SDS011");
   }
 
-  delay(2000); // baca setiap 2 detik
+  Serial.println("-----------------------------");
+  delay(5000);
 }
