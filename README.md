@@ -7,3 +7,12 @@ MHZ RX -> TX2 (17)
 MHZ TX -> RX2 (16)  
 Vin -> 5v  
 GND -> GND  
+
+## SDS011
+### Library
+Nova Fitness SDS Dust by Pawet
+### Wiring
+MHZ RX -> 19  
+MHZ TX -> 18 
+Vin -> 5v  
+GND -> GND  
