@@ -1,29 +1,34 @@
 #include <Arduino.h>
 #include "MHZ19.h"
 
-#define RX_PIN 16
-#define TX_PIN 17
-#define BAUDRATE 9600
+#define MHZ19_RX 4   // Pin RX untuk MH-Z19 (ke TX sensor)
+#define MHZ19_TX 5   // Pin TX untuk MH-Z19 (ke RX sensor)
+#define MHZ19_BAUD 9600
 
-HardwareSerial mySerial(2);
-MHZ19 myMHZ19;
+HardwareSerial mhzSerial(1); // Gunakan UART1
+MHZ19 mhz19;
 
 void setup() {
-  Serial.begin(9600);
-  mySerial.begin(BAUDRATE, SERIAL_8N1, RX_PIN, TX_PIN);
-  myMHZ19.begin(mySerial);
+  Serial.begin(115200);
+  delay(1000);
 
-  myMHZ19.autoCalibration(false); // nonaktifkan ABC sementara
+  Serial.println("Inisialisasi MH-Z19...");
+  mhzSerial.begin(MHZ19_BAUD, SERIAL_8N1, MHZ19_RX, MHZ19_TX);
+  mhz19.begin(mhzSerial);
+  mhz19.autoCalibration(false);
+  Serial.println("MH-Z19 Siap.");
 }
 
 void loop() {
-  int co2 = myMHZ19.getCO2();
-  int8_t temp = myMHZ19.getTemperature();
+  int co2 = mhz19.getCO2();
+  int8_t temp = mhz19.getTemperature();
 
-  Serial.print("CO2 (ppm): ");
-  Serial.println(co2);
-  Serial.print("Temperature (C): ");
-  Serial.println(temp);
+  Serial.print("CO2: ");
+  Serial.print(co2);
+  Serial.print(" ppm | Suhu: ");
+  Serial.print(temp);
+  Serial.println(" °C");
 
-  delay(3000);
+  Serial.println("-----------------------------");
+  delay(5000);
 }
