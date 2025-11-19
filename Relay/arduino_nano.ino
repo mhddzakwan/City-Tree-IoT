@@ -1,7 +1,7 @@
 #include <SoftwareSerial.h>
 
-SoftwareSerial mySerial(8, 9);  // RX, TX
-                               // Pin 8 = RX, Pin 9 = TX
+SoftwareSerial mySerial(9, 8);  // RX, TX
+                               // Pin 9 = RX, Pin 8= TX
 
 String dataMasuk = "";
 
