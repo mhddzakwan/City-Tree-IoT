@@ -5,8 +5,6 @@
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
 void setup() {
-  // Inisialisasi I2C pada pin alternatif ESP32
-  Wire.begin(25, 26); // SDA=GPIO25, SCL=GPIO26
 
   lcd.begin();
   lcd.backlight();
