@@ -11,9 +11,12 @@
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
 
+bool i2cOK = true;
+bool lcdOK = true;
+
 // ====== WiFi ======
-char ssid[] = "KelilingDunia1";
-char pass[] = "12julham12";
+char ssid[] = "breathora";
+char pass[] = "breathora123";
 
 // ====== Preferences ======
 #include <Preferences.h>
@@ -152,78 +155,102 @@ void TaskSensor(void *pv) {
   const TickType_t xDelay = pdMS_TO_TICKS(2000);
 
   for (;;) {
+
+    // ====== BACA SENSOR NON-I2C ======
     float hum = dht.readHumidity();
     float tempDHT = dht.readTemperature();
     int co2 = mhz19.getCO2();
     PmResult pm = sds.readPm();
 
-    float ppm = NAN;
+    lastHum = hum;
+    lastTempDHT = tempDHT;
+    lastCO2 = co2;
 
-    if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(200))) {
-      int16_t adc0 = ads.readADC_SingleEnded(0);
-      float voltage = adc0 * 0.1875 / 1000.0;
+    if (pm.isOk()) {
+      lastPM25 = pm.pm25;
+      lastPM10 = pm.pm10;
+    }
 
-      if (voltage > 0.001) {
-        float RS = ((5.0 * RL) / voltage) - RL;
-        float ratio = RS / R0;
-        if (ratio > 0) {
-          ppm = pow(10.0, ((log10(ratio) - 0.48) / -0.38));
-          if (ppm > 1000) ppm = 1000;
+    // =============================================
+    // =============== MQ2 via I2C ==================
+    // =============================================
+    if (i2cOK) {
+      if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(200))) {
+
+        int16_t adc0 = ads.readADC_SingleEnded(0);
+        float voltage = adc0 * 0.1875 / 1000.0;
+
+        float ppm = NAN;
+
+        if (voltage > 0.001) {
+          float RS = ((5.0 * RL) / voltage) - RL;
+          float ratio = RS / R0;
+          if (ratio > 0) {
+            ppm = pow(10.0, ((log10(ratio) - 0.48) / -0.38));
+            if (ppm > 1000) ppm = 1000;
+          }
         }
+
+        lastMQ2ppm = ppm;
+
+        xSemaphoreGive(i2cMutex);
       }
-
-      lastHum = hum;
-      lastTempDHT = tempDHT;
-      lastCO2 = co2;
-
-      if (pm.isOk()) {
-        lastPM25 = pm.pm25;
-        lastPM10 = pm.pm10;
+      else {
+        lastMQ2ppm = -1;   // gagal baca ADS
       }
+    }
+    else {
+      lastMQ2ppm = -1;     // I2C OFF, MQ2 tidak aktif
+    }
 
-      lastMQ2ppm = ppm;
+    // =============================================
+    // ================= LCD DISPLAY ===============
+    // =============================================
+    if (lcdOK) {
+      if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(200))) {
 
-      // ====== LCD ======
-      lcd.clear();
+        lcd.clear();
 
-      // Baris 0 → Suhu & Humidity
-      lcd.setCursor(0, 0);
-      lcd.print("T:"); lcd.print((int)tempDHT);
-      lcd.print("("); lcd.print(getStatus(tempDHT, threshTemp)); lcd.print(") ");
+        // Baris 0
+        lcd.setCursor(0, 0);
+        lcd.print("T:"); lcd.print((int)tempDHT);
+        lcd.print("("); lcd.print(getStatus(tempDHT, threshTemp)); lcd.print(") ");
+        lcd.print("H:"); lcd.print((int)hum);
+        lcd.print("("); lcd.print(getStatus(hum, threshHum)); lcd.print(")");
 
-      lcd.print("H:"); lcd.print((int)hum);
-      lcd.print("("); lcd.print(getStatus(hum, threshHum)); lcd.print(")");
+        // Baris 1
+        lcd.setCursor(0, 1);
+        lcd.print("CO2:"); lcd.print(lastCO2); lcd.print("ppm ");
+        lcd.print("("); lcd.print(getStatus(lastCO2, threshCO2)); lcd.print(")");
 
-      // Baris 1 → CO2
-      lcd.setCursor(0, 1);
-      lcd.print("C02:"); lcd.print(co2); lcd.print("ppm ");
-      lcd.print("("); lcd.print(getStatus(co2, threshCO2)); lcd.print(")");
+        // Baris 2
+        lcd.setCursor(0, 2);
+        lcd.print("P2.5:"); lcd.print(lastPM25);
+        lcd.print("("); lcd.print(getStatus(lastPM25, threshPM25)); lcd.print(") ");
 
-      // Baris 2 → PM2.5 & PM10
-      lcd.setCursor(0, 2);
-      lcd.print("P2.5:"); lcd.print(lastPM25);
-      lcd.print("("); lcd.print(getStatus(lastPM25, threshPM25)); lcd.print(") ");
+        lcd.print("P10:"); lcd.print(lastPM10);
+        lcd.print("("); lcd.print(getStatus(lastPM10, threshPM10)); lcd.print(")");
 
-      lcd.print("P10:"); lcd.print(lastPM10);
-      lcd.print("("); lcd.print(getStatus(lastPM10, threshPM10)); lcd.print(")");
-
-      // Baris 3 → MQ2
-      lcd.setCursor(0, 3);
-      lcd.print("CO:");
-      if (!isnan(lastMQ2ppm)) {
+        // Baris 3
+        lcd.setCursor(0, 3);
+        lcd.print("CO:");
+        if (lastMQ2ppm >= 0) {
           lcd.print(lastMQ2ppm);
           lcd.print("(");
           lcd.print(getStatus(lastMQ2ppm, threshCO));
           lcd.print(")");
-      } else {
+        }
+        else {
           lcd.print("NA");
+        }
+
+        xSemaphoreGive(i2cMutex);
       }
-
-      xSemaphoreGive(i2cMutex);
-
     }
 
-    // ===== SEND TO BLYNK =====
+    // =============================================
+    // ================ BLYNK SEND =================
+    // =============================================
     Blynk.virtualWrite(V0, lastTempDHT);
     Blynk.virtualWrite(V1, lastHum);
     Blynk.virtualWrite(V2, lastCO2);
@@ -231,12 +258,14 @@ void TaskSensor(void *pv) {
     Blynk.virtualWrite(V4, lastPM10);
     Blynk.virtualWrite(V5, lastMQ2ppm);
 
-    cekDanger();  // <— JALANKAN SISTEM RELAY
+    // =============================================
+    // ================== RELAY =====================
+    // =============================================
+    cekDanger();
 
     vTaskDelay(xDelay);
   }
 }
-
 
 // ===== BLYNK CALLBACK =====
 
@@ -279,6 +308,7 @@ String getStatus(float value, float thresh) {
 void setup() {
   Serial.begin(115200);
 
+  // Relay setup...
   pinMode(RELAY_HIJAU, OUTPUT);
   pinMode(RELAY_KUNING, OUTPUT);
   pinMode(RELAY_MERAH, OUTPUT);
@@ -295,33 +325,34 @@ void setup() {
 
   printMutex = xSemaphoreCreateMutex();
   i2cMutex = xSemaphoreCreateMutex();
-  Wire.begin();
 
-  lcd.begin();
+  // ====== Coba I2C ======
+  Wire.begin();
+  if (!ads.begin()) {
+    Serial.println("ADS1115 TIDAK TERDETEKSI! Menonaktifkan fitur MQ2.");
+    i2cOK = false;
+  }
+
+  // ====== Coba LCD ======
+  lcd.begin();                 // gunakan init() → bukan begin()
   lcd.backlight();
+  lcdOK = true;
+  lcd.print("Menyiapkan Sensor...");
+
 
   dht.begin();
-
   mhzSerial.begin(9600, SERIAL_8N1, MHZ19_RX, MHZ19_TX);
   mhz19.begin(mhzSerial);
-  lcd.print("Menyiapkan Sensor...2");
-  delay(3000);
-  lcd.clear();
-  
 
   sdsSerial.begin(9600, SERIAL_8N1, SDS_RX, SDS_TX);
   sds.begin();
 
-  ads.begin();
-  ads.setGain(GAIN_TWOTHIRDS);
-  lcd.print("Menyiapkan Sensor...1"); 
-  delay(3000);
-  
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
   loadThreshold();
 
   xTaskCreatePinnedToCore(TaskSensor, "TaskSensor", 4096, NULL, 1, NULL, 1);
 }
+
 
 void loop() {
   Blynk.run();
